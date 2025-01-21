@@ -2,14 +2,14 @@ from rest_framework import serializers
 from .models import *
 
 
-class StreamPlatformSerializer(serializers.ModelSerializer):
+class StreamPlatformSerializer(serializers.HyperlinkedModelSerializer):
 
         class Meta:
             model = StreamPlatform
             fields = '__all__'
 
 
-class WatchListSerializer(serializers.ModelSerializer):
+class WatchListSerializer(serializers.HyperlinkedModelSerializer):
 
         class Meta:
             model = WatchList
