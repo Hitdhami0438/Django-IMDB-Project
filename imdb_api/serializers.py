@@ -1,18 +1,35 @@
 from rest_framework import serializers
 from .models import *
 
+class WatchListSerializer(serializers.ModelSerializer):
 
-class StreamPlatformSerializer(serializers.HyperlinkedModelSerializer):
+        class Meta:
+            model = WatchList
+            fields = '__all__'
 
+
+class StreamPlatformSerializer(serializers.ModelSerializer):
+        watchlist = WatchListSerializer(many=True, read_only=True)
         class Meta:
             model = StreamPlatform
             fields = '__all__'
 
+        def validate_name(self, value):
+            if len(value) <= 2:
+                raise serializers.ValidationError("Name is too short")
+            return value
 
-class WatchListSerializer(serializers.HyperlinkedModelSerializer):
+        def validate(self, data):
+            if data['name'] == data['about']:
+                raise serializers.ValidationError("Name and about should be different")
+            return data
 
+
+class ReviewSerializer(serializers.ModelSerializer):
+        review_user = serializers.StringRelatedField(read_only=True)
+        watchlist = serializers.StringRelatedField()
         class Meta:
-            model = WatchList
+            model = Review
             fields = '__all__'
 
 

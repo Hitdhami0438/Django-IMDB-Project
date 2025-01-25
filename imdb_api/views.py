@@ -3,14 +3,19 @@ from django.shortcuts import render
 from django.views.decorators.csrf import csrf_exempt
 
 from rest_framework.parsers import JSONParser
+from rest_framework.permissions import IsAuthenticated, IsAdminUser, IsAuthenticatedOrReadOnly
 from rest_framework.response import Response
 from rest_framework.decorators import api_view
 from rest_framework.views import APIView
-from rest_framework import mixins
+from rest_framework import mixins, viewsets
 from rest_framework import generics
 from rest_framework.reverse import reverse
+from rest_framework import permissions
+from rest_framework import renderers
+from rest_framework.decorators import action
 
 from .models import *
+from .permissions import *
 from .serializers import *
 
 
@@ -20,29 +25,80 @@ from .serializers import *
 @api_view(['GET'])
 def api_root(request, format=None):
     return Response({
-        'movie_list': reverse('movie-list', request=request, format=format),
-        'stream_list': reverse('stream-list', request=request, format=format)
+        'WatchViewSet': reverse('movie', request=request, format=format),
+        'streamPlatformViewSet': reverse('stream', request=request, format=format),
+        'ReviewViewSet': reverse('review', request=request, format=format)
     })
 
 
-
-class movie_list(generics.ListCreateAPIView):
+class WatchViewSet(viewsets.ModelViewSet):
     queryset = WatchList.objects.all()
     serializer_class = WatchListSerializer
 
-class movie_detail(generics.RetrieveUpdateDestroyAPIView):
-    queryset = WatchList.objects.all()
-    serializer_class = WatchListSerializer
-
-
-
-class stream_list(generics.ListCreateAPIView):
+class streamPlatformViewSet(viewsets.ModelViewSet):
     queryset = StreamPlatform.objects.all()
     serializer_class = StreamPlatformSerializer
 
-class stream_detail(generics.RetrieveUpdateDestroyAPIView):
-    queryset = StreamPlatform.objects.all()
-    serializer_class = StreamPlatformSerializer
+class ReviewViewSet(viewsets.ModelViewSet):
+    permission_classes = [IsAdminUser]
+    queryset = Review.objects.all()
+    serializer_class = ReviewSerializer
+
+
+
+class ReviewCreate(generics.CreateAPIView):
+    queryset = Review.objects.all()
+    serializer_class = ReviewSerializer
+
+    def perform_create(self, serializer):
+        pk = self.kwargs.get('pk')
+        watchlist = WatchList.objects.get(pk=pk)
+        review_user = self.request.user
+        UserQuerySet = Review.objects.filter(watchlist=watchlist, review_user=review_user)
+        if UserQuerySet.exists():
+            raise serializers.ValidationError("You have already reviewed this movie")
+        if watchlist.number_rating == 0:
+            watchlist.av_rating = serializer.validated_data['rating']
+        else:
+            watchlist.av_rating = (watchlist.av_rating + serializer.validated_data['rating']) / 2
+        watchlist.number_rating += 1
+        watchlist.save()
+
+        serializer.save(watchlist=watchlist, review_user=review_user)
+
+class ReviewListView(generics.ListCreateAPIView):
+    permission_classes = [IsAuthenticatedOrReadOnly]
+    queryset = Review.objects.all()
+    serializer_class = ReviewSerializer
+
+    def get_queryset(self):
+        pk = self.kwargs.get('pk')
+        return Review.objects.filter(watchlist_id=pk)
+
+# class ReviewDetailView(generics.ListAPIView):
+#     permission_classes = [ReviewUserOrReadOnly]
+#     queryset = Review.objects.all()
+#     serializer_class = ReviewSerializer
+
+
+
+# class movie_list(generics.ListCreateAPIView):
+#     queryset = WatchList.objects.all()
+#     serializer_class = WatchListSerializer
+#
+# class movie_detail(generics.RetrieveUpdateDestroyAPIView):
+#     queryset = WatchList.objects.all()
+#     serializer_class = WatchListSerializer
+
+
+
+# class stream_list(generics.ListCreateAPIView):
+#     queryset = StreamPlatform.objects.all()
+#     serializer_class = StreamPlatformSerializer
+#
+# class stream_detail(generics.RetrieveUpdateDestroyAPIView):
+#     queryset = StreamPlatform.objects.all()
+#     serializer_class = StreamPlatformSerializer
 
 
 
